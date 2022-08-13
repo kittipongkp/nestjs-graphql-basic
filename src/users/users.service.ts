@@ -1,7 +1,7 @@
 import { CreateUserInput } from './dto/input/create-user-input.dto';
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { GetUserArgs } from './dto/args/get-user-args.dto';
-import { UserRepository } from './user.repository';
+import { UsersRepository } from './user.repository';
 import * as bcrypt from 'bcrypt';
 import { User } from './models/user.model';
 import { UserDocument } from './models/user.schema';
@@ -9,12 +9,12 @@ import { UserDocument } from './models/user.schema';
 @Injectable()
 export class UsersService {
 
-    constructor(private readonly userRepository: UserRepository) { }
+    constructor(private readonly usersRepository: UsersRepository) { }
 
     async createUser(createUserData: CreateUserInput) {
         await this.validateCreateUserData(createUserData);
 
-        const userDocument = await this.userRepository.create({ 
+        const userDocument = await this.usersRepository.create({ 
             ...createUserData, 
             password: await bcrypt.hash(createUserData.password, 10) 
         });
@@ -25,7 +25,7 @@ export class UsersService {
 
     private async validateCreateUserData(createUserData: CreateUserInput) {
         try {
-            await this.userRepository.findOne({ email: createUserData.email });
+            await this.usersRepository.findOne({ email: createUserData.email });
             throw new UnprocessableEntityException('User with this email already exists');
         } catch (error) {
 
@@ -39,8 +39,20 @@ export class UsersService {
         };
     }
 
+    async validateUser(email: string, password: string) {
+        const userDocument = await this.usersRepository.findOne({ email });
+        const passwordIsValid = await bcrypt.compare(
+          password,
+          userDocument.password,
+        );
+        if (!passwordIsValid) {
+          throw new UnauthorizedException('Credentials are not valid.');
+        }
+        return this.toModel(userDocument);
+      }
+
     async getUser(getUserArgs: GetUserArgs) {
-        const userDocument = await this.userRepository.findOne({getUserArgs});
+        const userDocument = await this.usersRepository.findOne({getUserArgs});
         return this.toModel(userDocument);
 
      } 
