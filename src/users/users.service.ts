@@ -12,23 +12,30 @@ export class UsersService {
     constructor(private readonly usersRepository: UsersRepository) { }
 
     async createUser(createUserData: CreateUserInput) {
-        await this.validateCreateUserData(createUserData);
+        try {
+            const emailAlready = await this.validateCreateUserData(createUserData);
+            if (emailAlready) {
+                throw new UnprocessableEntityException('Email already exists');
+            }
 
-        const userDocument = await this.usersRepository.create({ 
-            ...createUserData, 
-            password: await bcrypt.hash(createUserData.password, 10) 
-        });
+            const userDocument = await this.usersRepository.create({
+                ...createUserData,
+                password: await bcrypt.hash(createUserData.password, 10)
+            });
 
-        return this.toModel(userDocument);
+            return this.toModel(userDocument);
+        } catch (error) {
+            throw new UnprocessableEntityException(error.message);
+        }
 
     }
 
     private async validateCreateUserData(createUserData: CreateUserInput) {
         try {
             await this.usersRepository.findOne({ email: createUserData.email });
-            throw new UnprocessableEntityException('User with this email already exists');
-        } catch (error) {
-
+            return true;
+        } catch (err) {
+            return false;
         }
     }
 
@@ -40,20 +47,31 @@ export class UsersService {
     }
 
     async validateUser(email: string, password: string) {
-        const userDocument = await this.usersRepository.findOne({ email });
-        const passwordIsValid = await bcrypt.compare(
-          password,
-          userDocument.password,
-        );
-        if (!passwordIsValid) {
-          throw new UnauthorizedException('Credentials are not valid.');
+        try {
+
+            const userDocument = await this.usersRepository.findOne({ email });
+            if (!userDocument) {
+                throw new UnauthorizedException('Credentials are not valid.');
+            }
+            const passwordIsValid = await bcrypt.compare(
+                password,
+                userDocument.password,
+            );
+            if (!passwordIsValid) {
+                throw new UnauthorizedException('Credentials are not valid.');
+            }
+            return this.toModel(userDocument);
+
+        } catch (error) {
+
         }
-        return this.toModel(userDocument);
-      }
+    }
+
+
 
     async getUser(getUserArgs: GetUserArgs) {
-        const userDocument = await this.usersRepository.findOne({getUserArgs});
+        const userDocument = await this.usersRepository.findOne({ getUserArgs });
         return this.toModel(userDocument);
 
-     } 
+    }
 }

@@ -6,6 +6,7 @@ import { UsersService } from 'src/users/users.service';
 import { LoginInput } from './dto/input/login-input.dto';
 import { LoginResponse } from './dto/response/login-response.dto';
 import { Response } from 'express'
+import { LogoutResponse } from './dto/response/logut-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -47,12 +48,18 @@ export class AuthService {
         };
     }
 
+    async logout(response: Response): Promise<LogoutResponse> {
+        response.clearCookie('Authentication');
+        return {
+            message: 'Logout success',
+        };
+    }
+
     async validateUser(email: string, password: string): Promise<User> {
         const user = await this.usersService.validateUser(email, password);
         if (user) {
             return user;
         }
-
         return null;
     } 
 }
